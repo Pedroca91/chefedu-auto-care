@@ -8,7 +8,8 @@ interface DataContextType {
   addClient: (c: Omit<Client, 'id' | 'createdAt'>) => Client;
   updateClient: (c: Client) => void;
   deleteClient: (id: string) => void;
-  addQuote: (q: Omit<Quote, 'id' | 'createdAt' | 'total'>) => Quote;
+  addQuote: (q: Omit<Quote, 'id' | 'createdAt' | 'total' | 'partsTotal'>) => Quote;
+  updateQuote: (q: Quote) => void;
   updateQuoteStatus: (id: string, status: Quote['status']) => void;
   addService: (quoteId: string, clientId: string) => Service;
   updateServiceStatus: (id: string, status: Service['status']) => void;

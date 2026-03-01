@@ -27,9 +27,11 @@ export interface Quote {
   vehicleId: string;
   parts: QuotePart[];
   laborCost: number;
+  partsMarkup: number; // percentage markup on parts (hidden from client)
   observations: string;
   status: QuoteStatus;
-  total: number;
+  total: number; // total shown to client (includes markup)
+  partsTotal: number; // raw parts cost (internal use)
   createdAt: string;
 }
 

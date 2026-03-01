@@ -4,20 +4,33 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Search, Trash2, Phone, Car } from 'lucide-react';
+import { Plus, Search, Trash2, Phone, Car, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Vehicle } from '@/types';
+import type { Vehicle, Client } from '@/types';
 
 export default function Clients() {
-  const { clients, addClient, deleteClient } = useData();
+  const { clients, addClient, updateClient, deleteClient } = useData();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  // New client form
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [vBrand, setVBrand] = useState('');
   const [vModel, setVModel] = useState('');
   const [vPlate, setVPlate] = useState('');
   const [vYear, setVYear] = useState('');
+
+  // Edit form
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editVehicles, setEditVehicles] = useState<Vehicle[]>([]);
+  const [newVBrand, setNewVBrand] = useState('');
+  const [newVModel, setNewVModel] = useState('');
+  const [newVPlate, setNewVPlate] = useState('');
+  const [newVYear, setNewVYear] = useState('');
 
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -37,6 +50,35 @@ export default function Clients() {
     toast.success('Cliente cadastrado!');
     setName(''); setPhone(''); setVBrand(''); setVModel(''); setVPlate(''); setVYear('');
     setOpen(false);
+  };
+
+  const openEdit = (c: Client) => {
+    setEditingClient(c);
+    setEditName(c.name);
+    setEditPhone(c.phone);
+    setEditVehicles([...c.vehicles]);
+    setNewVBrand(''); setNewVModel(''); setNewVPlate(''); setNewVYear('');
+    setEditOpen(true);
+  };
+
+  const addVehicleToEdit = () => {
+    if (!newVBrand.trim()) { toast.error('Informe a marca do veículo'); return; }
+    setEditVehicles(prev => [...prev, { id: crypto.randomUUID(), brand: newVBrand, model: newVModel, plate: newVPlate, year: newVYear }]);
+    setNewVBrand(''); setNewVModel(''); setNewVPlate(''); setNewVYear('');
+  };
+
+  const removeVehicleFromEdit = (id: string) => setEditVehicles(prev => prev.filter(v => v.id !== id));
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient || !editName.trim() || !editPhone.trim()) {
+      toast.error('Nome e telefone são obrigatórios');
+      return;
+    }
+    updateClient({ ...editingClient, name: editName.trim(), phone: editPhone.trim(), vehicles: editVehicles });
+    toast.success('Cliente atualizado!');
+    setEditOpen(false);
+    setEditingClient(null);
   };
 
   return (
@@ -78,6 +120,49 @@ export default function Clients() {
         </Dialog>
       </div>
 
+      {/* Edit Client Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="bg-card border-border max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Editar Cliente</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome *</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="bg-input border-border" />
+            </div>
+            <div className="space-y-2">
+              <Label>WhatsApp *</Label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="bg-input border-border" />
+            </div>
+
+            <div className="space-y-3">
+              <Label>Veículos</Label>
+              {editVehicles.map(v => (
+                <div key={v.id} className="flex items-center justify-between bg-accent rounded-lg px-3 py-2">
+                  <span className="text-sm"><Car className="h-3 w-3 inline mr-1 text-primary" />{v.brand} {v.model} • {v.plate} • {v.year}</span>
+                  <button type="button" onClick={() => removeVehicleFromEdit(v.id)} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground font-medium">Adicionar veículo</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Marca" value={newVBrand} onChange={e => setNewVBrand(e.target.value)} className="bg-input border-border text-sm" />
+                <Input placeholder="Modelo" value={newVModel} onChange={e => setNewVModel(e.target.value)} className="bg-input border-border text-sm" />
+                <Input placeholder="Placa" value={newVPlate} onChange={e => setNewVPlate(e.target.value)} className="bg-input border-border text-sm" />
+                <Input placeholder="Ano" value={newVYear} onChange={e => setNewVYear(e.target.value)} className="bg-input border-border text-sm" />
+              </div>
+              <Button type="button" variant="outline" onClick={addVehicleToEdit} className="border-border w-full">
+                <Plus className="h-4 w-4 mr-1" /> Adicionar Veículo
+              </Button>
+            </div>
+
+            <Button type="submit" className="w-full gradient-red hover:opacity-90">Salvar</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -98,10 +183,15 @@ export default function Clients() {
                   <Phone className="h-3 w-3" /> {c.phone}
                 </p>
               </div>
-              <button onClick={() => { deleteClient(c.id); toast.success('Cliente removido'); }}
-                className="text-muted-foreground hover:text-destructive transition-colors">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => openEdit(c)} className="text-muted-foreground hover:text-primary transition-colors">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button onClick={() => { deleteClient(c.id); toast.success('Cliente removido'); }}
+                  className="text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             {c.vehicles.length > 0 && (
               <div className="mt-3 pt-3 border-t border-border">

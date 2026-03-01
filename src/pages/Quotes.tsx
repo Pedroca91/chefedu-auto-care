@@ -6,14 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, Send, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Send, Search, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { STATUS_LABELS, STATUS_COLORS } from '@/types';
-import type { QuotePart, QuoteStatus } from '@/types';
+import type { QuotePart, QuoteStatus, Quote } from '@/types';
 
 export default function Quotes() {
-  const { clients, quotes, addQuote, updateQuoteStatus, getClient, addService } = useData();
+  const { clients, quotes, addQuote, updateQuote, updateQuoteStatus, getClient, addService } = useData();
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -22,9 +24,18 @@ export default function Quotes() {
   const [vehicleId, setVehicleId] = useState('');
   const [parts, setParts] = useState<QuotePart[]>([]);
   const [laborCost, setLaborCost] = useState('');
+  const [partsMarkup, setPartsMarkup] = useState('');
   const [observations, setObservations] = useState('');
   const [partName, setPartName] = useState('');
   const [partPrice, setPartPrice] = useState('');
+
+  // Edit form state
+  const [editParts, setEditParts] = useState<QuotePart[]>([]);
+  const [editLaborCost, setEditLaborCost] = useState('');
+  const [editPartsMarkup, setEditPartsMarkup] = useState('');
+  const [editObservations, setEditObservations] = useState('');
+  const [editPartName, setEditPartName] = useState('');
+  const [editPartPrice, setEditPartPrice] = useState('');
 
   const selectedClient = clients.find(c => c.id === clientId);
 
@@ -34,26 +45,67 @@ export default function Quotes() {
     setPartName(''); setPartPrice('');
   };
 
-  const removePart = (id: string) => setParts(prev => prev.filter(p => p.id !== id));
+  const addEditPart = () => {
+    if (!editPartName.trim() || !editPartPrice) { toast.error('Preencha nome e valor da peça'); return; }
+    setEditParts(prev => [...prev, { id: crypto.randomUUID(), name: editPartName.trim(), price: parseFloat(editPartPrice) }]);
+    setEditPartName(''); setEditPartPrice('');
+  };
 
-  const total = parts.reduce((s, p) => s + p.price, 0) + (parseFloat(laborCost) || 0);
+  const removePart = (id: string) => setParts(prev => prev.filter(p => p.id !== id));
+  const removeEditPart = (id: string) => setEditParts(prev => prev.filter(p => p.id !== id));
+
+  const calcTotal = (p: QuotePart[], labor: string, markup: string) => {
+    const partsSum = p.reduce((s, x) => s + x.price, 0);
+    const markedUp = partsSum * (1 + (parseFloat(markup) || 0) / 100);
+    return markedUp + (parseFloat(labor) || 0);
+  };
+
+  const total = calcTotal(parts, laborCost, partsMarkup);
+  const editTotal = calcTotal(editParts, editLaborCost, editPartsMarkup);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientId) { toast.error('Selecione um cliente'); return; }
     if (parts.length === 0) { toast.error('Adicione pelo menos uma peça'); return; }
-    addQuote({ clientId, vehicleId, parts, laborCost: parseFloat(laborCost) || 0, observations, status: 'pending' });
+    addQuote({ clientId, vehicleId, parts, laborCost: parseFloat(laborCost) || 0, partsMarkup: parseFloat(partsMarkup) || 0, observations, status: 'pending' });
     toast.success('Orçamento criado!');
-    setClientId(''); setVehicleId(''); setParts([]); setLaborCost(''); setObservations('');
+    setClientId(''); setVehicleId(''); setParts([]); setLaborCost(''); setPartsMarkup(''); setObservations('');
     setOpen(false);
+  };
+
+  const openEdit = (q: Quote) => {
+    setEditingQuote(q);
+    setEditParts([...q.parts]);
+    setEditLaborCost(q.laborCost.toString());
+    setEditPartsMarkup((q.partsMarkup || 0).toString());
+    setEditObservations(q.observations);
+    setEditPartName(''); setEditPartPrice('');
+    setEditOpen(true);
+  };
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuote) return;
+    if (editParts.length === 0) { toast.error('Adicione pelo menos uma peça'); return; }
+    updateQuote({
+      ...editingQuote,
+      parts: editParts,
+      laborCost: parseFloat(editLaborCost) || 0,
+      partsMarkup: parseFloat(editPartsMarkup) || 0,
+      observations: editObservations,
+    });
+    toast.success('Orçamento atualizado!');
+    setEditOpen(false);
+    setEditingQuote(null);
   };
 
   const sendWhatsApp = (quoteId: string) => {
     const q = quotes.find(x => x.id === quoteId)!;
     const client = getClient(q.clientId);
     if (!client) return;
-
-    const partsText = q.parts.map(p => `• ${p.name}: R$ ${p.price.toFixed(2)}`).join('\n');
+    // Show marked-up prices to client (hide real cost)
+    const markup = 1 + (q.partsMarkup || 0) / 100;
+    const partsText = q.parts.map(p => `• ${p.name}: R$ ${(p.price * markup).toFixed(2)}`).join('\n');
     const msg = encodeURIComponent(
       `🔧 *CHEFEDU - Orçamento*\n\nOlá ${client.name}!\n\nSegue seu orçamento:\n\n${partsText}\n\n🛠 Mão de obra: R$ ${q.laborCost.toFixed(2)}\n💰 *TOTAL: R$ ${q.total.toFixed(2)}*\n\n${q.observations ? `📝 Obs: ${q.observations}\n\n` : ''}Responda *SIM* para aprovar.`
     );
@@ -76,6 +128,31 @@ export default function Quotes() {
     const client = getClient(q.clientId);
     return !search || (client?.name.toLowerCase().includes(search.toLowerCase()));
   });
+
+  const partsForm = (
+    currentParts: QuotePart[], addFn: () => void, removeFn: (id: string) => void,
+    pName: string, setPName: (v: string) => void, pPrice: string, setPPrice: (v: string) => void
+  ) => (
+    <div className="space-y-3">
+      <Label>Peças</Label>
+      <div className="flex gap-2">
+        <Input placeholder="Nome da peça" value={pName} onChange={e => setPName(e.target.value)} className="bg-input border-border flex-1" />
+        <Input type="number" placeholder="Valor" value={pPrice} onChange={e => setPPrice(e.target.value)} className="bg-input border-border w-28" step="0.01" />
+        <Button type="button" variant="outline" onClick={addFn} className="border-border"><Plus className="h-4 w-4" /></Button>
+      </div>
+      {currentParts.map(p => (
+        <div key={p.id} className="flex items-center justify-between bg-accent rounded-lg px-3 py-2">
+          <span className="text-sm">{p.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">R$ {p.price.toFixed(2)}</span>
+            <button type="button" onClick={() => removeFn(p.id)} className="text-muted-foreground hover:text-destructive">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -119,24 +196,12 @@ export default function Quotes() {
                 </div>
               )}
 
-              <div className="space-y-3">
-                <Label>Peças</Label>
-                <div className="flex gap-2">
-                  <Input placeholder="Nome da peça" value={partName} onChange={e => setPartName(e.target.value)} className="bg-input border-border flex-1" />
-                  <Input type="number" placeholder="Valor" value={partPrice} onChange={e => setPartPrice(e.target.value)} className="bg-input border-border w-28" step="0.01" />
-                  <Button type="button" variant="outline" onClick={addPart} className="border-border"><Plus className="h-4 w-4" /></Button>
-                </div>
-                {parts.map(p => (
-                  <div key={p.id} className="flex items-center justify-between bg-accent rounded-lg px-3 py-2">
-                    <span className="text-sm">{p.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">R$ {p.price.toFixed(2)}</span>
-                      <button type="button" onClick={() => removePart(p.id)} className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              {partsForm(parts, addPart, removePart, partName, setPartName, partPrice, setPartPrice)}
+
+              <div className="space-y-2">
+                <Label>Margem sobre peças (%)</Label>
+                <Input type="number" value={partsMarkup} onChange={e => setPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" placeholder="Ex: 30" />
+                <p className="text-xs text-muted-foreground">Percentual adicionado ao custo das peças (não visível ao cliente)</p>
               </div>
 
               <div className="space-y-2">
@@ -160,6 +225,40 @@ export default function Quotes() {
         </Dialog>
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="bg-card border-border max-h-[90vh] overflow-auto max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Editar Orçamento</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            {partsForm(editParts, addEditPart, removeEditPart, editPartName, setEditPartName, editPartPrice, setEditPartPrice)}
+
+            <div className="space-y-2">
+              <Label>Margem sobre peças (%)</Label>
+              <Input type="number" value={editPartsMarkup} onChange={e => setEditPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mão de Obra (R$)</Label>
+              <Input type="number" value={editLaborCost} onChange={e => setEditLaborCost(e.target.value)} className="bg-input border-border" step="0.01" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Textarea value={editObservations} onChange={e => setEditObservations(e.target.value)} className="bg-input border-border" rows={3} />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <span className="text-lg font-heading font-bold">Total:</span>
+              <span className="text-2xl font-heading font-bold text-primary">R$ {editTotal.toFixed(2)}</span>
+            </div>
+
+            <Button type="submit" className="w-full gradient-red hover:opacity-90">Salvar Alterações</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {clients.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           Cadastre clientes primeiro para criar orçamentos.
@@ -175,6 +274,7 @@ export default function Quotes() {
         {filtered.slice().reverse().map(q => {
           const client = getClient(q.clientId);
           const expanded = expandedId === q.id;
+          const markup = 1 + (q.partsMarkup || 0) / 100;
           return (
             <div key={q.id} className="card-glow rounded-xl bg-card overflow-hidden animate-slide-in">
               <button
@@ -200,7 +300,7 @@ export default function Quotes() {
                     {q.parts.map(p => (
                       <div key={p.id} className="flex justify-between text-sm py-1">
                         <span>{p.name}</span>
-                        <span>R$ {p.price.toFixed(2)}</span>
+                        <span>R$ {(p.price * markup).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -210,6 +310,9 @@ export default function Quotes() {
                   </div>
                   {q.observations && <p className="text-sm text-muted-foreground">📝 {q.observations}</p>}
                   <div className="flex flex-wrap gap-2 pt-2">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(q)} className="border-border">
+                      <Pencil className="h-3 w-3 mr-1" /> Editar
+                    </Button>
                     <Button size="sm" onClick={() => sendWhatsApp(q.id)} className="bg-success hover:bg-success/90 text-success-foreground">
                       <Send className="h-3 w-3 mr-1" /> WhatsApp
                     </Button>

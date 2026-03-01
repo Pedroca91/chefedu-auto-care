@@ -58,11 +58,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClients(prev => { const n = prev.filter(x => x.id !== id); persist('chefedu_clients', n); return n; });
   }, [persist]);
 
-  const addQuote = useCallback((q: Omit<Quote, 'id' | 'createdAt' | 'total'>) => {
-    const total = q.parts.reduce((s, p) => s + p.price, 0) + q.laborCost;
-    const newQuote: Quote = { ...q, id: uid(), total, createdAt: new Date().toISOString() };
+  const addQuote = useCallback((q: Omit<Quote, 'id' | 'createdAt' | 'total' | 'partsTotal'>) => {
+    const partsTotal = q.parts.reduce((s, p) => s + p.price, 0);
+    const markedUpParts = partsTotal * (1 + (q.partsMarkup || 0) / 100);
+    const total = markedUpParts + q.laborCost;
+    const newQuote: Quote = { ...q, id: uid(), partsTotal, total, createdAt: new Date().toISOString() };
     setQuotes(prev => { const n = [...prev, newQuote]; persist('chefedu_quotes', n); return n; });
     return newQuote;
+  }, [persist]);
+
+  const updateQuote = useCallback((q: Quote) => {
+    const partsTotal = q.parts.reduce((s, p) => s + p.price, 0);
+    const markedUpParts = partsTotal * (1 + (q.partsMarkup || 0) / 100);
+    const total = markedUpParts + q.laborCost;
+    const updated = { ...q, partsTotal, total };
+    setQuotes(prev => { const n = prev.map(x => x.id === updated.id ? updated : x); persist('chefedu_quotes', n); return n; });
   }, [persist]);
 
   const updateQuoteStatus = useCallback((id: string, status: Quote['status']) => {

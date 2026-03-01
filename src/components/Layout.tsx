@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, Users, FileText, Wrench, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Wrench, DollarSign, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/clients', icon: Users, label: 'Clientes' },
   { to: '/quotes', icon: FileText, label: 'Orçamentos' },
   { to: '/services', icon: Wrench, label: 'Serviços' },
+  { to: '/financial', icon: DollarSign, label: 'Financeiro' },
 ];
 
 export default function Layout() {

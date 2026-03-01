@@ -97,7 +97,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getQuote = useCallback((id: string) => quotes.find(q => q.id === id), [quotes]);
 
   return (
-    <DataContext.Provider value={{ clients, quotes, services, addClient, updateClient, deleteClient, addQuote, updateQuoteStatus, addService, updateServiceStatus, getClient, getQuote }}>
+    <DataContext.Provider value={{ clients, quotes, services, addClient, updateClient, deleteClient, addQuote, updateQuote, updateQuoteStatus, addService, updateServiceStatus, getClient, getQuote }}>
       {children}
     </DataContext.Provider>
   );

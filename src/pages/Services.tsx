@@ -1,14 +1,38 @@
+import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Wrench } from 'lucide-react';
+import { CheckCircle, Wrench, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import FinalizeModal from '@/components/FinalizeModal';
+import { PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS } from '@/types';
+import type { PaymentMethod, PaymentStatus } from '@/types';
 
 export default function Services() {
-  const { services, getClient, getQuote, updateServiceStatus } = useData();
+  const { services, getClient, getQuote, updateServiceStatus, addPayment, getPaymentByServiceId } = useData();
+  const [finalizeId, setFinalizeId] = useState<string | null>(null);
+  const [finalizeTotal, setFinalizeTotal] = useState(0);
 
-  const handleComplete = (id: string) => {
-    updateServiceStatus(id, 'completed');
+  const handleFinalize = (id: string) => {
+    const svc = services.find(s => s.id === id);
+    if (!svc) return;
+    const quote = getQuote(svc.quote_id);
+    setFinalizeTotal(quote?.total || 0);
+    setFinalizeId(id);
+  };
+
+  const confirmFinalize = async (data: { method: PaymentMethod; status: PaymentStatus; paid_amount: number; reminder_date?: string | null }) => {
+    if (!finalizeId) return;
+    const svc = services.find(s => s.id === finalizeId);
+    if (!svc) return;
+    await addPayment({
+      service_id: finalizeId, method: data.method, status: data.status,
+      total_amount: finalizeTotal, paid_amount: data.paid_amount,
+      remaining_amount: Math.max(0, finalizeTotal - data.paid_amount),
+      reminder_date: data.reminder_date,
+    });
+    await updateServiceStatus(finalizeId, 'completed');
     toast.success('Serviço finalizado!');
+    setFinalizeId(null);
   };
 
   const active = services.filter(s => s.status === 'in_progress');
@@ -23,22 +47,20 @@ export default function Services() {
 
       {active.length > 0 && (
         <div className="space-y-3">
-          <h2 className="font-heading font-semibold text-lg flex items-center gap-2">
-            <Wrench className="h-5 w-5 text-primary" /> Em Andamento
-          </h2>
+          <h2 className="font-heading font-semibold text-lg flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" /> Em Andamento</h2>
           {active.map(s => {
-            const client = getClient(s.clientId);
-            const quote = getQuote(s.quoteId);
+            const client = getClient(s.client_id);
+            const quote = getQuote(s.quote_id);
             return (
               <div key={s.id} className="card-glow rounded-xl bg-card p-5 flex items-center justify-between animate-slide-in">
                 <div>
                   <p className="font-heading font-semibold">{client?.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    Iniciado: {new Date(s.startedAt).toLocaleDateString('pt-BR')}
+                    Iniciado: {new Date(s.started_at).toLocaleDateString('pt-BR')}
                     {quote && ` • R$ ${quote.total.toFixed(2)}`}
                   </p>
                 </div>
-                <Button size="sm" onClick={() => handleComplete(s.id)} className="gradient-red hover:opacity-90">
+                <Button size="sm" onClick={() => handleFinalize(s.id)} className="gradient-red hover:opacity-90">
                   <CheckCircle className="h-4 w-4 mr-1" /> Finalizar
                 </Button>
               </div>
@@ -49,19 +71,33 @@ export default function Services() {
 
       {completed.length > 0 && (
         <div className="space-y-3">
-          <h2 className="font-heading font-semibold text-lg flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-success" /> Finalizados
-          </h2>
+          <h2 className="font-heading font-semibold text-lg flex items-center gap-2"><CheckCircle className="h-5 w-5 text-success" /> Finalizados</h2>
           {completed.map(s => {
-            const client = getClient(s.clientId);
-            const quote = getQuote(s.quoteId);
+            const client = getClient(s.client_id);
+            const quote = getQuote(s.quote_id);
+            const payment = getPaymentByServiceId(s.id);
+            const isPending = payment && payment.status !== 'paid';
             return (
-              <div key={s.id} className="card-glow rounded-xl bg-card p-5 animate-slide-in opacity-70">
-                <p className="font-heading font-semibold">{client?.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  Concluído: {s.completedAt && new Date(s.completedAt).toLocaleDateString('pt-BR')}
-                  {quote && ` • R$ ${quote.total.toFixed(2)}`}
-                </p>
+              <div key={s.id} className={`card-glow rounded-xl bg-card p-5 animate-slide-in ${isPending ? 'ring-2 ring-destructive/50' : 'opacity-70'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-heading font-semibold">{client?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Concluído: {s.completed_at && new Date(s.completed_at).toLocaleDateString('pt-BR')}
+                      {quote && ` • R$ ${quote.total.toFixed(2)}`}
+                    </p>
+                    {payment && (
+                      <p className="text-xs mt-1">
+                        <span className={payment.status === 'paid' ? 'text-success' : 'text-destructive'}>
+                          {PAYMENT_STATUS_LABELS[payment.status as PaymentStatus]}
+                        </span>
+                        {' • '}{PAYMENT_METHOD_LABELS[payment.method as PaymentMethod]}
+                        {payment.remaining_amount > 0 && <span className="text-destructive"> • Restante: R$ {payment.remaining_amount.toFixed(2)}</span>}
+                      </p>
+                    )}
+                  </div>
+                  {isPending && <AlertCircle className="h-5 w-5 text-destructive" />}
+                </div>
               </div>
             );
           })}
@@ -73,6 +109,13 @@ export default function Services() {
           Nenhum serviço ainda. Aprove um orçamento para criar um serviço.
         </div>
       )}
+
+      <FinalizeModal
+        open={!!finalizeId}
+        onOpenChange={v => { if (!v) setFinalizeId(null); }}
+        totalAmount={finalizeTotal}
+        onConfirm={confirmFinalize}
+      />
     </div>
   );
 }

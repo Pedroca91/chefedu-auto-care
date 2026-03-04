@@ -5,21 +5,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, UserPlus } from 'lucide-react';
 
 export default function Login() {
-  const [user, setUser] = useState('');
+  const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
-  const { login } = useAuth();
+  const [isSignup, setIsSignup] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(user, pass)) {
-      navigate('/dashboard');
+    if (!email.trim() || !pass.trim()) { toast.error('Preencha todos os campos'); return; }
+    setLoading(true);
+    if (isSignup) {
+      const res = await signup(email, pass);
+      if (res.success) {
+        toast.success('Conta criada! Entrando...');
+        // Auto-confirm is on so login immediately
+        const ok = await login(email, pass);
+        if (ok) navigate('/dashboard');
+      } else {
+        toast.error(res.error || 'Erro ao criar conta');
+      }
     } else {
-      toast.error('Usuário ou senha inválidos');
+      const ok = await login(email, pass);
+      if (ok) {
+        navigate('/dashboard');
+      } else {
+        toast.error('E-mail ou senha inválidos');
+      }
     }
+    setLoading(false);
   };
 
   return (
@@ -35,22 +53,21 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4 card-glow rounded-xl bg-card p-6">
           <div className="space-y-2">
-            <Label htmlFor="user">Usuário</Label>
-            <Input id="user" value={user} onChange={e => setUser(e.target.value)} placeholder="admin" className="bg-input border-border" />
+            <Label htmlFor="email">E-mail</Label>
+            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" className="bg-input border-border" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="pass">Senha</Label>
             <Input id="pass" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" className="bg-input border-border" />
           </div>
-          <Button type="submit" className="w-full gradient-red hover:opacity-90 transition-opacity">
-            <KeyRound className="h-4 w-4 mr-2" />
-            Entrar
+          <Button type="submit" disabled={loading} className="w-full gradient-red hover:opacity-90 transition-opacity">
+            {isSignup ? <UserPlus className="h-4 w-4 mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
+            {loading ? 'Aguarde...' : isSignup ? 'Criar Conta' : 'Entrar'}
           </Button>
+          <button type="button" onClick={() => setIsSignup(!isSignup)} className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
+            {isSignup ? 'Já tem conta? Entrar' : 'Não tem conta? Cadastrar'}
+          </button>
         </form>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          admin / chefedu123
-        </p>
       </div>
     </div>
   );

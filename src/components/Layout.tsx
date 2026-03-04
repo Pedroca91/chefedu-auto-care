@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, Users, FileText, Wrench, DollarSign, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Wrench, DollarSign, Calendar, Car, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
@@ -9,6 +9,8 @@ const navItems = [
   { to: '/quotes', icon: FileText, label: 'Orçamentos' },
   { to: '/services', icon: Wrench, label: 'Serviços' },
   { to: '/financial', icon: DollarSign, label: 'Financeiro' },
+  { to: '/agenda', icon: Calendar, label: 'Agenda' },
+  { to: '/vehicle-history', icon: Car, label: 'Histórico Veículos' },
 ];
 
 export default function Layout() {
@@ -16,8 +18,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -64,12 +66,10 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar">
         {sidebarContent}
       </aside>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />

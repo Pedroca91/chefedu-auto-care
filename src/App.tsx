@@ -12,12 +12,15 @@ import Clients from "./pages/Clients";
 import Quotes from "./pages/Quotes";
 import Services from "./pages/Services";
 import Financial from "./pages/Financial";
+import Agenda from "./pages/Agenda";
+import VehicleHistory from "./pages/VehicleHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><span className="text-muted-foreground">Carregando...</span></div>;
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
@@ -37,6 +40,8 @@ const App = () => (
                 <Route path="/quotes" element={<Quotes />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/financial" element={<Financial />} />
+                <Route path="/agenda" element={<Agenda />} />
+                <Route path="/vehicle-history" element={<VehicleHistory />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

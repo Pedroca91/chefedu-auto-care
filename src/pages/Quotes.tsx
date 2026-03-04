@@ -19,7 +19,6 @@ export default function Quotes() {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Form state
   const [clientId, setClientId] = useState('');
   const [vehicleId, setVehicleId] = useState('');
   const [parts, setParts] = useState<QuotePart[]>([]);
@@ -29,7 +28,6 @@ export default function Quotes() {
   const [partName, setPartName] = useState('');
   const [partPrice, setPartPrice] = useState('');
 
-  // Edit form state
   const [editParts, setEditParts] = useState<QuotePart[]>([]);
   const [editLaborCost, setEditLaborCost] = useState('');
   const [editPartsMarkup, setEditPartsMarkup] = useState('');
@@ -63,35 +61,41 @@ export default function Quotes() {
   const total = calcTotal(parts, laborCost, partsMarkup);
   const editTotal = calcTotal(editParts, editLaborCost, editPartsMarkup);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientId) { toast.error('Selecione um cliente'); return; }
     if (parts.length === 0) { toast.error('Adicione pelo menos uma peça'); return; }
-    addQuote({ clientId, vehicleId, parts, laborCost: parseFloat(laborCost) || 0, partsMarkup: parseFloat(partsMarkup) || 0, observations, status: 'pending' });
+    await addQuote({
+      client_id: clientId, vehicle_id: vehicleId || null,
+      parts: parts.map(p => ({ name: p.name, price: p.price })),
+      labor_cost: parseFloat(laborCost) || 0, parts_markup: parseFloat(partsMarkup) || 0,
+      observations, status: 'pending',
+    });
     toast.success('Orçamento criado!');
     setClientId(''); setVehicleId(''); setParts([]); setLaborCost(''); setPartsMarkup(''); setObservations('');
     setOpen(false);
   };
 
   const openEdit = (q: Quote) => {
+    if (q.status === 'completed') { toast.error('Orçamento finalizado não pode ser editado'); return; }
     setEditingQuote(q);
     setEditParts([...q.parts]);
-    setEditLaborCost(q.laborCost.toString());
-    setEditPartsMarkup((q.partsMarkup || 0).toString());
+    setEditLaborCost(q.labor_cost.toString());
+    setEditPartsMarkup((q.parts_markup || 0).toString());
     setEditObservations(q.observations);
     setEditPartName(''); setEditPartPrice('');
     setEditOpen(true);
   };
 
-  const handleEdit = (e: React.FormEvent) => {
+  const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQuote) return;
     if (editParts.length === 0) { toast.error('Adicione pelo menos uma peça'); return; }
-    updateQuote({
+    await updateQuote({
       ...editingQuote,
       parts: editParts,
-      laborCost: parseFloat(editLaborCost) || 0,
-      partsMarkup: parseFloat(editPartsMarkup) || 0,
+      labor_cost: parseFloat(editLaborCost) || 0,
+      parts_markup: parseFloat(editPartsMarkup) || 0,
       observations: editObservations,
     });
     toast.success('Orçamento atualizado!');
@@ -101,23 +105,22 @@ export default function Quotes() {
 
   const sendWhatsApp = (quoteId: string) => {
     const q = quotes.find(x => x.id === quoteId)!;
-    const client = getClient(q.clientId);
+    const client = getClient(q.client_id);
     if (!client) return;
-    // Show marked-up prices to client (hide real cost)
-    const markup = 1 + (q.partsMarkup || 0) / 100;
+    const markup = 1 + (q.parts_markup || 0) / 100;
     const partsText = q.parts.map(p => `• ${p.name}: R$ ${(p.price * markup).toFixed(2)}`).join('\n');
     const msg = encodeURIComponent(
-      `🔧 *CHEFEDU - Orçamento*\n\nOlá ${client.name}!\n\nSegue seu orçamento:\n\n${partsText}\n\n🛠 Mão de obra: R$ ${q.laborCost.toFixed(2)}\n💰 *TOTAL: R$ ${q.total.toFixed(2)}*\n\n${q.observations ? `📝 Obs: ${q.observations}\n\n` : ''}Responda *SIM* para aprovar.`
+      `🔧 *CHEFEDU - Orçamento*\n\nOlá ${client.name}!\n\nSegue seu orçamento:\n\n${partsText}\n\n🛠 Mão de obra: R$ ${q.labor_cost.toFixed(2)}\n💰 *TOTAL: R$ ${q.total.toFixed(2)}*\n\n${q.observations ? `📝 Obs: ${q.observations}\n\n` : ''}Responda *SIM* para aprovar.`
     );
     window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=${msg}`, '_blank');
     toast.success('Abrindo WhatsApp...');
   };
 
-  const handleStatusChange = (id: string, status: QuoteStatus) => {
-    updateQuoteStatus(id, status);
+  const handleStatusChange = async (id: string, status: QuoteStatus) => {
+    await updateQuoteStatus(id, status);
     if (status === 'approved') {
       const q = quotes.find(x => x.id === id)!;
-      addService(id, q.clientId);
+      await addService(id, q.client_id, q.vehicle_id);
       toast.success('Orçamento aprovado e serviço criado!');
     } else {
       toast.success(`Status atualizado para ${STATUS_LABELS[status]}`);
@@ -125,7 +128,7 @@ export default function Quotes() {
   };
 
   const filtered = quotes.filter(q => {
-    const client = getClient(q.clientId);
+    const client = getClient(q.client_id);
     return !search || (client?.name.toLowerCase().includes(search.toLowerCase()));
   });
 
@@ -145,9 +148,7 @@ export default function Quotes() {
           <span className="text-sm">{p.name}</span>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">R$ {p.price.toFixed(2)}</span>
-            <button type="button" onClick={() => removeFn(p.id)} className="text-muted-foreground hover:text-destructive">
-              <Trash2 className="h-3 w-3" />
-            </button>
+            <button type="button" onClick={() => removeFn(p.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
           </div>
         </div>
       ))}
@@ -163,107 +164,80 @@ export default function Quotes() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className="gradient-red hover:opacity-90" disabled={clients.length === 0}>
-              <Plus className="h-4 w-4 mr-2" /> Novo Orçamento
-            </Button>
+            <Button className="gradient-red hover:opacity-90" disabled={clients.length === 0}><Plus className="h-4 w-4 mr-2" /> Novo Orçamento</Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border max-h-[90vh] overflow-auto max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="font-heading">Novo Orçamento</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle className="font-heading">Novo Orçamento</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label>Cliente *</Label>
                 <Select value={clientId} onValueChange={v => { setClientId(v); setVehicleId(''); }}>
                   <SelectTrigger className="bg-input border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent className="bg-card border-border">{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-
               {selectedClient && selectedClient.vehicles.length > 0 && (
                 <div className="space-y-2">
                   <Label>Veículo</Label>
                   <Select value={vehicleId} onValueChange={setVehicleId}>
                     <SelectTrigger className="bg-input border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {selectedClient.vehicles.map(v => (
-                        <SelectItem key={v.id} value={v.id}>{v.brand} {v.model} - {v.plate}</SelectItem>
-                      ))}
+                      {selectedClient.vehicles.map(v => <SelectItem key={v.id} value={v.id}>{v.brand} {v.model} - {v.plate}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-
               {partsForm(parts, addPart, removePart, partName, setPartName, partPrice, setPartPrice)}
-
               <div className="space-y-2">
                 <Label>Margem sobre peças (%)</Label>
                 <Input type="number" value={partsMarkup} onChange={e => setPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" placeholder="Ex: 30" />
                 <p className="text-xs text-muted-foreground">Percentual adicionado ao custo das peças (não visível ao cliente)</p>
               </div>
-
               <div className="space-y-2">
                 <Label>Mão de Obra (R$)</Label>
                 <Input type="number" value={laborCost} onChange={e => setLaborCost(e.target.value)} className="bg-input border-border" step="0.01" />
               </div>
-
               <div className="space-y-2">
                 <Label>Observações</Label>
                 <Textarea value={observations} onChange={e => setObservations(e.target.value)} className="bg-input border-border" rows={3} />
               </div>
-
               <div className="flex items-center justify-between pt-2 border-t border-border">
                 <span className="text-lg font-heading font-bold">Total:</span>
                 <span className="text-2xl font-heading font-bold text-primary">R$ {total.toFixed(2)}</span>
               </div>
-
               <Button type="submit" className="w-full gradient-red hover:opacity-90">Criar Orçamento</Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="bg-card border-border max-h-[90vh] overflow-auto max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Editar Orçamento</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading">Editar Orçamento</DialogTitle></DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4">
             {partsForm(editParts, addEditPart, removeEditPart, editPartName, setEditPartName, editPartPrice, setEditPartPrice)}
-
             <div className="space-y-2">
               <Label>Margem sobre peças (%)</Label>
               <Input type="number" value={editPartsMarkup} onChange={e => setEditPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" />
             </div>
-
             <div className="space-y-2">
               <Label>Mão de Obra (R$)</Label>
               <Input type="number" value={editLaborCost} onChange={e => setEditLaborCost(e.target.value)} className="bg-input border-border" step="0.01" />
             </div>
-
             <div className="space-y-2">
               <Label>Observações</Label>
               <Textarea value={editObservations} onChange={e => setEditObservations(e.target.value)} className="bg-input border-border" rows={3} />
             </div>
-
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <span className="text-lg font-heading font-bold">Total:</span>
               <span className="text-2xl font-heading font-bold text-primary">R$ {editTotal.toFixed(2)}</span>
             </div>
-
             <Button type="submit" className="w-full gradient-red hover:opacity-90">Salvar Alterações</Button>
           </form>
         </DialogContent>
       </Dialog>
 
-      {clients.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          Cadastre clientes primeiro para criar orçamentos.
-        </div>
-      )}
+      {clients.length === 0 && <div className="text-center py-12 text-muted-foreground">Cadastre clientes primeiro para criar orçamentos.</div>}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -271,25 +245,20 @@ export default function Quotes() {
       </div>
 
       <div className="space-y-3">
-        {filtered.slice().reverse().map(q => {
-          const client = getClient(q.clientId);
+        {filtered.map(q => {
+          const client = getClient(q.client_id);
           const expanded = expandedId === q.id;
-          const markup = 1 + (q.partsMarkup || 0) / 100;
+          const markup = 1 + (q.parts_markup || 0) / 100;
           return (
             <div key={q.id} className="card-glow rounded-xl bg-card overflow-hidden animate-slide-in">
-              <button
-                onClick={() => setExpandedId(expanded ? null : q.id)}
-                className="w-full flex items-center justify-between p-5 text-left"
-              >
+              <button onClick={() => setExpandedId(expanded ? null : q.id)} className="w-full flex items-center justify-between p-5 text-left">
                 <div>
                   <p className="font-heading font-semibold">{client?.name || 'Cliente'}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(q.createdAt).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(q.created_at).toLocaleDateString('pt-BR')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-heading font-bold">R$ {q.total.toFixed(2)}</span>
-                  <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[q.status]}`}>
-                    {STATUS_LABELS[q.status]}
-                  </span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[q.status]}`}>{STATUS_LABELS[q.status]}</span>
                   {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
@@ -306,16 +275,14 @@ export default function Quotes() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Mão de obra</span>
-                    <span>R$ {q.laborCost.toFixed(2)}</span>
+                    <span>R$ {q.labor_cost.toFixed(2)}</span>
                   </div>
                   {q.observations && <p className="text-sm text-muted-foreground">📝 {q.observations}</p>}
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(q)} className="border-border">
-                      <Pencil className="h-3 w-3 mr-1" /> Editar
-                    </Button>
-                    <Button size="sm" onClick={() => sendWhatsApp(q.id)} className="bg-success hover:bg-success/90 text-success-foreground">
-                      <Send className="h-3 w-3 mr-1" /> WhatsApp
-                    </Button>
+                    {q.status !== 'completed' && (
+                      <Button size="sm" variant="outline" onClick={() => openEdit(q)} className="border-border"><Pencil className="h-3 w-3 mr-1" /> Editar</Button>
+                    )}
+                    <Button size="sm" onClick={() => sendWhatsApp(q.id)} className="bg-success hover:bg-success/90 text-success-foreground"><Send className="h-3 w-3 mr-1" /> WhatsApp</Button>
                     {q.status === 'pending' && (
                       <>
                         <Button size="sm" variant="outline" onClick={() => handleStatusChange(q.id, 'approved')} className="border-success text-success hover:bg-success/15">Aprovar</Button>
@@ -325,18 +292,13 @@ export default function Quotes() {
                     {q.status === 'approved' && (
                       <Button size="sm" variant="outline" onClick={() => handleStatusChange(q.id, 'in_progress')} className="border-primary text-primary hover:bg-primary/15">Iniciar Serviço</Button>
                     )}
-                    {q.status === 'in_progress' && (
-                      <Button size="sm" variant="outline" onClick={() => handleStatusChange(q.id, 'completed')} className="border-muted-foreground text-muted-foreground hover:bg-muted">Finalizar</Button>
-                    )}
                   </div>
                 </div>
               )}
             </div>
           );
         })}
-        {filtered.length === 0 && quotes.length > 0 && (
-          <div className="text-center py-12 text-muted-foreground">Nenhum resultado encontrado</div>
-        )}
+        {filtered.length === 0 && quotes.length > 0 && <div className="text-center py-12 text-muted-foreground">Nenhum resultado encontrado</div>}
       </div>
     </div>
   );

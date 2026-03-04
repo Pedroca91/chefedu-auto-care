@@ -14,7 +14,292 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string
+          entity_type: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      clients: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          created_at: string
+          id: string
+          method: string
+          paid_amount: number
+          remaining_amount: number
+          reminder_date: string | null
+          service_id: string
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          method?: string
+          paid_amount?: number
+          remaining_amount?: number
+          reminder_date?: string | null
+          service_id: string
+          status?: string
+          total_amount?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          method?: string
+          paid_amount?: number
+          remaining_amount?: number
+          reminder_date?: string | null
+          service_id?: string
+          status?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_parts: {
+        Row: {
+          id: string
+          image_url: string | null
+          name: string
+          price: number
+          quote_id: string
+        }
+        Insert: {
+          id?: string
+          image_url?: string | null
+          name: string
+          price?: number
+          quote_id: string
+        }
+        Update: {
+          id?: string
+          image_url?: string | null
+          name?: string
+          price?: number
+          quote_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_parts_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          labor_cost: number
+          observations: string
+          parts_markup: number
+          parts_total: number
+          status: string
+          total: number
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          labor_cost?: number
+          observations?: string
+          parts_markup?: number
+          parts_total?: number
+          status?: string
+          total?: number
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          labor_cost?: number
+          observations?: string
+          parts_markup?: number
+          parts_total?: number
+          status?: string
+          total?: number
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          client_id: string
+          completed_at: string | null
+          deadline: string | null
+          id: string
+          quote_id: string
+          scheduled_date: string | null
+          started_at: string
+          status: string
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          client_id: string
+          completed_at?: string | null
+          deadline?: string | null
+          id?: string
+          quote_id: string
+          scheduled_date?: string | null
+          started_at?: string
+          status?: string
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          completed_at?: string | null
+          deadline?: string | null
+          id?: string
+          quote_id?: string
+          scheduled_date?: string | null
+          started_at?: string
+          status?: string
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: true
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          brand: string
+          client_id: string
+          created_at: string
+          id: string
+          model: string
+          plate: string
+          year: string
+        }
+        Insert: {
+          brand: string
+          client_id: string
+          created_at?: string
+          id?: string
+          model: string
+          plate?: string
+          year?: string
+        }
+        Update: {
+          brand?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          model?: string
+          plate?: string
+          year?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

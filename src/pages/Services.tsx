@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Wrench, AlertCircle } from 'lucide-react';
+import { CheckCircle, Wrench, AlertCircle, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import FinalizeModal from '@/components/FinalizeModal';
+import VehicleInspection from '@/components/VehicleInspection';
 import { PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS } from '@/types';
 import type { PaymentMethod, PaymentStatus } from '@/types';
 
@@ -11,6 +12,7 @@ export default function Services() {
   const { services, getClient, getQuote, updateServiceStatus, addPayment, getPaymentByServiceId } = useData();
   const [finalizeId, setFinalizeId] = useState<string | null>(null);
   const [finalizeTotal, setFinalizeTotal] = useState(0);
+  const [inspectionServiceId, setInspectionServiceId] = useState<string | null>(null);
 
   const handleFinalize = (id: string) => {
     const svc = services.find(s => s.id === id);
@@ -22,8 +24,6 @@ export default function Services() {
 
   const confirmFinalize = async (data: { method: PaymentMethod; status: PaymentStatus; paid_amount: number; reminder_date?: string | null }) => {
     if (!finalizeId) return;
-    const svc = services.find(s => s.id === finalizeId);
-    if (!svc) return;
     await addPayment({
       service_id: finalizeId, method: data.method, status: data.status,
       total_amount: finalizeTotal, paid_amount: data.paid_amount,
@@ -52,17 +52,24 @@ export default function Services() {
             const client = getClient(s.client_id);
             const quote = getQuote(s.quote_id);
             return (
-              <div key={s.id} className="card-glow rounded-xl bg-card p-5 flex items-center justify-between animate-slide-in">
-                <div>
-                  <p className="font-heading font-semibold">{client?.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Iniciado: {new Date(s.started_at).toLocaleDateString('pt-BR')}
-                    {quote && ` • R$ ${quote.total.toFixed(2)}`}
-                  </p>
+              <div key={s.id} className="card-glow rounded-xl bg-card p-5 animate-slide-in">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="font-heading font-semibold">{client?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Iniciado: {new Date(s.started_at).toLocaleDateString('pt-BR')}
+                      {quote && ` • R$ ${quote.total.toFixed(2)}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setInspectionServiceId(s.id)} className="border-border">
+                      <Camera className="h-4 w-4 mr-1" /> Inspeção
+                    </Button>
+                    <Button size="sm" onClick={() => handleFinalize(s.id)} className="gradient-red hover:opacity-90">
+                      <CheckCircle className="h-4 w-4 mr-1" /> Finalizar
+                    </Button>
+                  </div>
                 </div>
-                <Button size="sm" onClick={() => handleFinalize(s.id)} className="gradient-red hover:opacity-90">
-                  <CheckCircle className="h-4 w-4 mr-1" /> Finalizar
-                </Button>
               </div>
             );
           })}
@@ -96,7 +103,12 @@ export default function Services() {
                       </p>
                     )}
                   </div>
-                  {isPending && <AlertCircle className="h-5 w-5 text-destructive" />}
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setInspectionServiceId(s.id)} className="border-border">
+                      <Camera className="h-4 w-4" />
+                    </Button>
+                    {isPending && <AlertCircle className="h-5 w-5 text-destructive" />}
+                  </div>
                 </div>
               </div>
             );
@@ -115,6 +127,12 @@ export default function Services() {
         onOpenChange={v => { if (!v) setFinalizeId(null); }}
         totalAmount={finalizeTotal}
         onConfirm={confirmFinalize}
+      />
+
+      <VehicleInspection
+        open={!!inspectionServiceId}
+        onOpenChange={v => { if (!v) setInspectionServiceId(null); }}
+        serviceId={inspectionServiceId || ''}
       />
     </div>
   );

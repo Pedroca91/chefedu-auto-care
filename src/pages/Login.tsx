@@ -12,8 +12,10 @@ export default function Login() {
   const [pass, setPass] = useState('');
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  if (isAuthenticated) { navigate('/'); return null; }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,16 +25,15 @@ export default function Login() {
       const res = await signup(email, pass);
       if (res.success) {
         toast.success('Conta criada! Entrando...');
-        // Auto-confirm is on so login immediately
         const ok = await login(email, pass);
-        if (ok) navigate('/dashboard');
+        if (ok) navigate('/');
       } else {
         toast.error(res.error || 'Erro ao criar conta');
       }
     } else {
       const ok = await login(email, pass);
       if (ok) {
-        navigate('/dashboard');
+        navigate('/');
       } else {
         toast.error('E-mail ou senha inválidos');
       }
@@ -45,10 +46,10 @@ export default function Login() {
       <div className="w-full max-w-sm animate-slide-in">
         <div className="text-center mb-8">
           <div className="mx-auto h-16 w-16 rounded-2xl gradient-red flex items-center justify-center mb-4 neon-glow">
-            <span className="font-heading text-3xl font-bold text-primary-foreground">C</span>
+            <span className="font-heading text-3xl font-bold text-primary-foreground">⚙</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold neon-text text-primary">CHEFEDU</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Sistema de Gestão Mecânica</p>
+          <h1 className="font-heading text-3xl font-bold neon-text text-primary">Sistema de Gestão</h1>
+          <p className="text-muted-foreground mt-1 text-sm">para Oficinas Mecânicas</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 card-glow rounded-xl bg-card p-6">

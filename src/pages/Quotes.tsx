@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { useShop } from '@/contexts/ShopContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +14,7 @@ import type { QuotePart, QuoteStatus, Quote } from '@/types';
 
 export default function Quotes() {
   const { clients, quotes, addQuote, updateQuote, updateQuoteStatus, getClient, addService } = useData();
+  const { currentShop } = useShop();
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
@@ -36,26 +38,24 @@ export default function Quotes() {
   const [editPartPrice, setEditPartPrice] = useState('');
 
   const selectedClient = clients.find(c => c.id === clientId);
+  const shopName = currentShop?.name || 'Oficina';
 
   const addPart = () => {
     if (!partName.trim() || !partPrice) { toast.error('Preencha nome e valor da peça'); return; }
     setParts(prev => [...prev, { id: crypto.randomUUID(), name: partName.trim(), price: parseFloat(partPrice) }]);
     setPartName(''); setPartPrice('');
   };
-
   const addEditPart = () => {
     if (!editPartName.trim() || !editPartPrice) { toast.error('Preencha nome e valor da peça'); return; }
     setEditParts(prev => [...prev, { id: crypto.randomUUID(), name: editPartName.trim(), price: parseFloat(editPartPrice) }]);
     setEditPartName(''); setEditPartPrice('');
   };
-
   const removePart = (id: string) => setParts(prev => prev.filter(p => p.id !== id));
   const removeEditPart = (id: string) => setEditParts(prev => prev.filter(p => p.id !== id));
 
   const calcTotal = (p: QuotePart[], labor: string, markup: string) => {
     const partsSum = p.reduce((s, x) => s + x.price, 0);
-    const markedUp = partsSum * (1 + (parseFloat(markup) || 0) / 100);
-    return markedUp + (parseFloat(labor) || 0);
+    return partsSum * (1 + (parseFloat(markup) || 0) / 100) + (parseFloat(labor) || 0);
   };
 
   const total = calcTotal(parts, laborCost, partsMarkup);
@@ -78,29 +78,18 @@ export default function Quotes() {
 
   const openEdit = (q: Quote) => {
     if (q.status === 'completed') { toast.error('Orçamento finalizado não pode ser editado'); return; }
-    setEditingQuote(q);
-    setEditParts([...q.parts]);
-    setEditLaborCost(q.labor_cost.toString());
-    setEditPartsMarkup((q.parts_markup || 0).toString());
-    setEditObservations(q.observations);
-    setEditPartName(''); setEditPartPrice('');
+    setEditingQuote(q); setEditParts([...q.parts]);
+    setEditLaborCost(q.labor_cost.toString()); setEditPartsMarkup((q.parts_markup || 0).toString());
+    setEditObservations(q.observations); setEditPartName(''); setEditPartPrice('');
     setEditOpen(true);
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingQuote) return;
-    if (editParts.length === 0) { toast.error('Adicione pelo menos uma peça'); return; }
-    await updateQuote({
-      ...editingQuote,
-      parts: editParts,
-      labor_cost: parseFloat(editLaborCost) || 0,
-      parts_markup: parseFloat(editPartsMarkup) || 0,
-      observations: editObservations,
-    });
+    if (!editingQuote || editParts.length === 0) { toast.error('Adicione pelo menos uma peça'); return; }
+    await updateQuote({ ...editingQuote, parts: editParts, labor_cost: parseFloat(editLaborCost) || 0, parts_markup: parseFloat(editPartsMarkup) || 0, observations: editObservations });
     toast.success('Orçamento atualizado!');
-    setEditOpen(false);
-    setEditingQuote(null);
+    setEditOpen(false); setEditingQuote(null);
   };
 
   const sendWhatsApp = (quoteId: string) => {
@@ -110,8 +99,9 @@ export default function Quotes() {
     const markup = 1 + (q.parts_markup || 0) / 100;
     const partsText = q.parts.map(p => `• ${p.name}: R$ ${(p.price * markup).toFixed(2)}`).join('\n');
     const msg = encodeURIComponent(
-      `🔧 *CHEFEDU - Orçamento*\n\nOlá ${client.name}!\n\nSegue seu orçamento:\n\n${partsText}\n\n🛠 Mão de obra: R$ ${q.labor_cost.toFixed(2)}\n💰 *TOTAL: R$ ${q.total.toFixed(2)}*\n\n${q.observations ? `📝 Obs: ${q.observations}\n\n` : ''}Responda *SIM* para aprovar.`
+      `Olá!\n\nAqui é da *${shopName}*.\n\nSegue o orçamento do seu veículo:\n\n${partsText}\n\n🛠 Mão de obra: R$ ${q.labor_cost.toFixed(2)}\n💰 *TOTAL: R$ ${q.total.toFixed(2)}*\n\n${q.observations ? `📝 Obs: ${q.observations}\n\n` : ''}Para aprovar o orçamento responda com:\n\nDigite *1* para APROVAR.`
     );
+    const phone = (currentShop?.whatsapp || client.phone).replace(/\D/g, '');
     window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=${msg}`, '_blank');
     toast.success('Abrindo WhatsApp...');
   };
@@ -193,14 +183,8 @@ export default function Quotes() {
                 <Input type="number" value={partsMarkup} onChange={e => setPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" placeholder="Ex: 30" />
                 <p className="text-xs text-muted-foreground">Percentual adicionado ao custo das peças (não visível ao cliente)</p>
               </div>
-              <div className="space-y-2">
-                <Label>Mão de Obra (R$)</Label>
-                <Input type="number" value={laborCost} onChange={e => setLaborCost(e.target.value)} className="bg-input border-border" step="0.01" />
-              </div>
-              <div className="space-y-2">
-                <Label>Observações</Label>
-                <Textarea value={observations} onChange={e => setObservations(e.target.value)} className="bg-input border-border" rows={3} />
-              </div>
+              <div className="space-y-2"><Label>Mão de Obra (R$)</Label><Input type="number" value={laborCost} onChange={e => setLaborCost(e.target.value)} className="bg-input border-border" step="0.01" /></div>
+              <div className="space-y-2"><Label>Observações</Label><Textarea value={observations} onChange={e => setObservations(e.target.value)} className="bg-input border-border" rows={3} /></div>
               <div className="flex items-center justify-between pt-2 border-t border-border">
                 <span className="text-lg font-heading font-bold">Total:</span>
                 <span className="text-2xl font-heading font-bold text-primary">R$ {total.toFixed(2)}</span>
@@ -216,18 +200,9 @@ export default function Quotes() {
           <DialogHeader><DialogTitle className="font-heading">Editar Orçamento</DialogTitle></DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4">
             {partsForm(editParts, addEditPart, removeEditPart, editPartName, setEditPartName, editPartPrice, setEditPartPrice)}
-            <div className="space-y-2">
-              <Label>Margem sobre peças (%)</Label>
-              <Input type="number" value={editPartsMarkup} onChange={e => setEditPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" />
-            </div>
-            <div className="space-y-2">
-              <Label>Mão de Obra (R$)</Label>
-              <Input type="number" value={editLaborCost} onChange={e => setEditLaborCost(e.target.value)} className="bg-input border-border" step="0.01" />
-            </div>
-            <div className="space-y-2">
-              <Label>Observações</Label>
-              <Textarea value={editObservations} onChange={e => setEditObservations(e.target.value)} className="bg-input border-border" rows={3} />
-            </div>
+            <div className="space-y-2"><Label>Margem sobre peças (%)</Label><Input type="number" value={editPartsMarkup} onChange={e => setEditPartsMarkup(e.target.value)} className="bg-input border-border" step="0.1" /></div>
+            <div className="space-y-2"><Label>Mão de Obra (R$)</Label><Input type="number" value={editLaborCost} onChange={e => setEditLaborCost(e.target.value)} className="bg-input border-border" step="0.01" /></div>
+            <div className="space-y-2"><Label>Observações</Label><Textarea value={editObservations} onChange={e => setEditObservations(e.target.value)} className="bg-input border-border" rows={3} /></div>
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <span className="text-lg font-heading font-bold">Total:</span>
               <span className="text-2xl font-heading font-bold text-primary">R$ {editTotal.toFixed(2)}</span>
@@ -273,10 +248,7 @@ export default function Quotes() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Mão de obra</span>
-                    <span>R$ {q.labor_cost.toFixed(2)}</span>
-                  </div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Mão de obra</span><span>R$ {q.labor_cost.toFixed(2)}</span></div>
                   {q.observations && <p className="text-sm text-muted-foreground">📝 {q.observations}</p>}
                   <div className="flex flex-wrap gap-2 pt-2">
                     {q.status !== 'completed' && (

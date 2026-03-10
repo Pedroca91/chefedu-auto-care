@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Search, Trash2, Phone, Car, Pencil } from 'lucide-react';
+import { Plus, Search, Trash2, Phone, Car, Pencil, Mail, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Vehicle, Client } from '@/types';
 
@@ -17,6 +17,8 @@ export default function Clients() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [vBrand, setVBrand] = useState('');
   const [vModel, setVModel] = useState('');
   const [vPlate, setVPlate] = useState('');
@@ -24,11 +26,14 @@ export default function Clients() {
 
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editAddress, setEditAddress] = useState('');
   const [editVehicles, setEditVehicles] = useState<Vehicle[]>([]);
   const [newVBrand, setNewVBrand] = useState('');
   const [newVModel, setNewVModel] = useState('');
   const [newVPlate, setNewVPlate] = useState('');
   const [newVYear, setNewVYear] = useState('');
+  const [newVObs, setNewVObs] = useState('');
 
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)
@@ -38,9 +43,9 @@ export default function Clients() {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) { toast.error('Nome e telefone são obrigatórios'); return; }
     const vehicles = vBrand.trim() ? [{ brand: vBrand, model: vModel, plate: vPlate, year: vYear }] : [];
-    await addClient({ name: name.trim(), phone: phone.trim(), vehicles: vehicles as any });
+    await addClient({ name: name.trim(), phone: phone.trim(), email: email.trim(), address: address.trim(), vehicles: vehicles as any });
     toast.success('Cliente cadastrado!');
-    setName(''); setPhone(''); setVBrand(''); setVModel(''); setVPlate(''); setVYear('');
+    setName(''); setPhone(''); setEmail(''); setAddress(''); setVBrand(''); setVModel(''); setVPlate(''); setVYear('');
     setOpen(false);
   };
 
@@ -48,15 +53,17 @@ export default function Clients() {
     setEditingClient(c);
     setEditName(c.name);
     setEditPhone(c.phone);
+    setEditEmail(c.email || '');
+    setEditAddress(c.address || '');
     setEditVehicles([...c.vehicles]);
-    setNewVBrand(''); setNewVModel(''); setNewVPlate(''); setNewVYear('');
+    setNewVBrand(''); setNewVModel(''); setNewVPlate(''); setNewVYear(''); setNewVObs('');
     setEditOpen(true);
   };
 
   const addVehicleToEdit = () => {
     if (!newVBrand.trim()) { toast.error('Informe a marca do veículo'); return; }
-    setEditVehicles(prev => [...prev, { id: crypto.randomUUID(), client_id: editingClient?.id || '', brand: newVBrand, model: newVModel, plate: newVPlate, year: newVYear }]);
-    setNewVBrand(''); setNewVModel(''); setNewVPlate(''); setNewVYear('');
+    setEditVehicles(prev => [...prev, { id: crypto.randomUUID(), client_id: editingClient?.id || '', brand: newVBrand, model: newVModel, plate: newVPlate, year: newVYear, observations: newVObs }]);
+    setNewVBrand(''); setNewVModel(''); setNewVPlate(''); setNewVYear(''); setNewVObs('');
   };
 
   const removeVehicleFromEdit = (id: string) => setEditVehicles(prev => prev.filter(v => v.id !== id));
@@ -64,7 +71,7 @@ export default function Clients() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient || !editName.trim() || !editPhone.trim()) { toast.error('Nome e telefone são obrigatórios'); return; }
-    await updateClient({ ...editingClient, name: editName.trim(), phone: editPhone.trim(), vehicles: editVehicles });
+    await updateClient({ ...editingClient, name: editName.trim(), phone: editPhone.trim(), email: editEmail.trim(), address: editAddress.trim(), vehicles: editVehicles });
     toast.success('Cliente atualizado!');
     setEditOpen(false);
     setEditingClient(null);
@@ -81,11 +88,13 @@ export default function Clients() {
           <DialogTrigger asChild>
             <Button className="gradient-red hover:opacity-90"><Plus className="h-4 w-4 mr-2" /> Novo Cliente</Button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border">
+          <DialogContent className="bg-card border-border max-h-[90vh] overflow-auto">
             <DialogHeader><DialogTitle className="font-heading">Novo Cliente</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-2"><Label>Nome *</Label><Input value={name} onChange={e => setName(e.target.value)} className="bg-input border-border" /></div>
               <div className="space-y-2"><Label>WhatsApp *</Label><Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="55119999..." className="bg-input border-border" /></div>
+              <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-input border-border" /></div>
+              <div className="space-y-2"><Label>Endereço</Label><Input value={address} onChange={e => setAddress(e.target.value)} className="bg-input border-border" /></div>
               <p className="text-xs text-muted-foreground font-medium">Veículo (opcional)</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1"><Label className="text-xs">Marca</Label><Input value={vBrand} onChange={e => setVBrand(e.target.value)} className="bg-input border-border" /></div>
@@ -105,6 +114,8 @@ export default function Clients() {
           <form onSubmit={handleEdit} className="space-y-4">
             <div className="space-y-2"><Label>Nome *</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="bg-input border-border" /></div>
             <div className="space-y-2"><Label>WhatsApp *</Label><Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="bg-input border-border" /></div>
+            <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} className="bg-input border-border" /></div>
+            <div className="space-y-2"><Label>Endereço</Label><Input value={editAddress} onChange={e => setEditAddress(e.target.value)} className="bg-input border-border" /></div>
             <div className="space-y-3">
               <Label>Veículos</Label>
               {editVehicles.map(v => (
@@ -119,6 +130,7 @@ export default function Clients() {
                 <Input placeholder="Modelo" value={newVModel} onChange={e => setNewVModel(e.target.value)} className="bg-input border-border text-sm" />
                 <Input placeholder="Placa" value={newVPlate} onChange={e => setNewVPlate(e.target.value)} className="bg-input border-border text-sm" />
                 <Input placeholder="Ano" value={newVYear} onChange={e => setNewVYear(e.target.value)} className="bg-input border-border text-sm" />
+                <Input placeholder="Observações" value={newVObs} onChange={e => setNewVObs(e.target.value)} className="bg-input border-border text-sm col-span-2" />
               </div>
               <Button type="button" variant="outline" onClick={addVehicleToEdit} className="border-border w-full"><Plus className="h-4 w-4 mr-1" /> Adicionar Veículo</Button>
             </div>
@@ -139,6 +151,8 @@ export default function Clients() {
               <div>
                 <h3 className="font-heading font-semibold text-lg">{c.name}</h3>
                 <p className="flex items-center gap-1 text-sm text-muted-foreground mt-1"><Phone className="h-3 w-3" /> {c.phone}</p>
+                {c.email && <p className="flex items-center gap-1 text-sm text-muted-foreground"><Mail className="h-3 w-3" /> {c.email}</p>}
+                {c.address && <p className="flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-3 w-3" /> {c.address}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => openEdit(c)} className="text-muted-foreground hover:text-primary transition-colors"><Pencil className="h-4 w-4" /></button>

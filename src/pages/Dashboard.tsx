@@ -1,5 +1,6 @@
 import { useData } from '@/contexts/DataContext';
-import { FileText, Users, Wrench, CheckCircle, Clock, AlertCircle, DollarSign } from 'lucide-react';
+import { useShop } from '@/contexts/ShopContext';
+import { FileText, Users, Wrench, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import type { QuoteStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
 
@@ -21,6 +22,7 @@ function StatCard({ icon: Icon, label, value, className }: { icon: any; label: s
 
 export default function Dashboard() {
   const { clients, quotes, services, payments } = useData();
+  const { currentShop } = useShop();
 
   const countByStatus = (s: QuoteStatus) => quotes.filter(q => q.status === s).length;
   const pendingPayments = payments.filter(p => p.status !== 'paid');
@@ -30,7 +32,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-heading font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Visão geral da oficina</p>
+        <p className="text-muted-foreground text-sm">Visão geral - {currentShop?.name || 'Oficina'}</p>
       </div>
 
       {totalPending > 0 && (

@@ -6,6 +6,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
   loading: boolean;
+  isSuperAdmin: boolean;
   login: (email: string, pass: string) => Promise<boolean>;
   signup: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -22,20 +23,36 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  const checkSuperAdmin = useCallback(async (userId: string) => {
+    try {
+      await supabase.rpc('auto_assign_super_admin' as any);
+      const { data } = await (supabase.from as any)('system_roles').select('role').eq('user_id', userId);
+      setIsSuperAdmin((data as any[])?.some((r: any) => r.role === 'super_admin') || false);
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) await checkSuperAdmin(u.id);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) await checkSuperAdmin(u.id);
+      else setIsSuperAdmin(false);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkSuperAdmin]);
 
   const login = useCallback(async (email: string, pass: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
@@ -50,10 +67,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+    setIsSuperAdmin(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated: !!user, user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated: !!user, user, loading, isSuperAdmin, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );

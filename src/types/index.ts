@@ -1,8 +1,34 @@
+export interface Shop {
+  id: string;
+  name: string;
+  logo_url?: string | null;
+  phone: string;
+  whatsapp: string;
+  address: string;
+  email: string;
+  primary_color: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface ShopUser {
+  id: string;
+  shop_id: string;
+  user_id: string;
+  role: ShopRole;
+  created_at: string;
+}
+
+export type ShopRole = 'admin' | 'mechanic' | 'financial';
+
 export interface Client {
   id: string;
   user_id: string;
+  shop_id: string;
   name: string;
   phone: string;
+  email: string;
+  address: string;
   vehicles: Vehicle[];
   created_at: string;
 }
@@ -14,6 +40,7 @@ export interface Vehicle {
   model: string;
   plate: string;
   year: string;
+  observations: string;
   created_at?: string;
 }
 
@@ -28,6 +55,7 @@ export interface QuotePart {
 export interface Quote {
   id: string;
   user_id: string;
+  shop_id: string;
   client_id: string;
   vehicle_id?: string | null;
   parts: QuotePart[];
@@ -45,6 +73,7 @@ export type QuoteStatus = 'pending' | 'approved' | 'rejected' | 'in_progress' | 
 export interface Service {
   id: string;
   user_id: string;
+  shop_id: string;
   quote_id: string;
   client_id: string;
   vehicle_id?: string | null;
@@ -58,6 +87,7 @@ export interface Service {
 export interface Payment {
   id: string;
   service_id: string;
+  shop_id: string;
   method: PaymentMethod;
   status: PaymentStatus;
   total_amount: number;
@@ -73,10 +103,30 @@ export type PaymentStatus = 'paid' | 'partial' | 'pending';
 export interface AuditEntry {
   id: string;
   user_id?: string | null;
+  shop_id?: string | null;
   entity_type: string;
   entity_id: string;
   action: string;
   details: Record<string, any>;
+  created_at: string;
+}
+
+export interface VehicleInspection {
+  id: string;
+  service_id: string;
+  shop_id: string;
+  inspector_user_id?: string | null;
+  notes: string;
+  inspection_date: string;
+  photos: InspectionPhoto[];
+  created_at: string;
+}
+
+export interface InspectionPhoto {
+  id: string;
+  inspection_id: string;
+  photo_url: string;
+  label: string;
   created_at: string;
 }
 
@@ -107,4 +157,10 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   paid: 'Pago Total',
   partial: 'Parcial',
   pending: 'Pendente',
+};
+
+export const SHOP_ROLE_LABELS: Record<ShopRole, string> = {
+  admin: 'Administrador',
+  mechanic: 'Mecânico',
+  financial: 'Financeiro',
 };

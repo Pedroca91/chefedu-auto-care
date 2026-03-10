@@ -22,6 +22,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
+          shop_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
+          shop_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -40,33 +42,91 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
+          shop_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
+          address: string
           created_at: string
+          email: string
           id: string
           name: string
           phone: string
+          shop_id: string | null
           user_id: string
+        }
+        Insert: {
+          address?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name: string
+          phone: string
+          shop_id?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          shop_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_photos: {
+        Row: {
+          created_at: string
+          id: string
+          inspection_id: string
+          label: string
+          photo_url: string
         }
         Insert: {
           created_at?: string
           id?: string
-          name: string
-          phone: string
-          user_id: string
+          inspection_id: string
+          label?: string
+          photo_url: string
         }
         Update: {
           created_at?: string
           id?: string
-          name?: string
-          phone?: string
-          user_id?: string
+          inspection_id?: string
+          label?: string
+          photo_url?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inspection_photos_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -77,6 +137,7 @@ export type Database = {
           remaining_amount: number
           reminder_date: string | null
           service_id: string
+          shop_id: string | null
           status: string
           total_amount: number
         }
@@ -88,6 +149,7 @@ export type Database = {
           remaining_amount?: number
           reminder_date?: string | null
           service_id: string
+          shop_id?: string | null
           status?: string
           total_amount?: number
         }
@@ -99,6 +161,7 @@ export type Database = {
           remaining_amount?: number
           reminder_date?: string | null
           service_id?: string
+          shop_id?: string | null
           status?: string
           total_amount?: number
         }
@@ -108,6 +171,13 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
             referencedColumns: ["id"]
           },
         ]
@@ -153,6 +223,7 @@ export type Database = {
           observations: string
           parts_markup: number
           parts_total: number
+          shop_id: string | null
           status: string
           total: number
           user_id: string
@@ -166,6 +237,7 @@ export type Database = {
           observations?: string
           parts_markup?: number
           parts_total?: number
+          shop_id?: string | null
           status?: string
           total?: number
           user_id: string
@@ -179,6 +251,7 @@ export type Database = {
           observations?: string
           parts_markup?: number
           parts_total?: number
+          shop_id?: string | null
           status?: string
           total?: number
           user_id?: string
@@ -190,6 +263,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
             referencedColumns: ["id"]
           },
           {
@@ -209,6 +289,7 @@ export type Database = {
           id: string
           quote_id: string
           scheduled_date: string | null
+          shop_id: string | null
           started_at: string
           status: string
           user_id: string
@@ -221,6 +302,7 @@ export type Database = {
           id?: string
           quote_id: string
           scheduled_date?: string | null
+          shop_id?: string | null
           started_at?: string
           status?: string
           user_id: string
@@ -233,6 +315,7 @@ export type Database = {
           id?: string
           quote_id?: string
           scheduled_date?: string | null
+          shop_id?: string | null
           started_at?: string
           status?: string
           user_id?: string
@@ -254,10 +337,154 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "services_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "services_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_users: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["shop_role"]
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["shop_role"]
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["shop_role"]
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_users_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shops: {
+        Row: {
+          active: boolean
+          address: string
+          created_at: string
+          email: string
+          id: string
+          logo_url: string | null
+          name: string
+          phone: string
+          primary_color: string
+          whatsapp: string
+        }
+        Insert: {
+          active?: boolean
+          address?: string
+          created_at?: string
+          email?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          phone?: string
+          primary_color?: string
+          whatsapp?: string
+        }
+        Update: {
+          active?: boolean
+          address?: string
+          created_at?: string
+          email?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          phone?: string
+          primary_color?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
+      system_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["system_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["system_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["system_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vehicle_inspections: {
+        Row: {
+          created_at: string
+          id: string
+          inspection_date: string
+          inspector_user_id: string | null
+          notes: string
+          service_id: string
+          shop_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inspection_date?: string
+          inspector_user_id?: string | null
+          notes?: string
+          service_id: string
+          shop_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inspection_date?: string
+          inspector_user_id?: string | null
+          notes?: string
+          service_id?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_inspections_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
             referencedColumns: ["id"]
           },
         ]
@@ -269,6 +496,7 @@ export type Database = {
           created_at: string
           id: string
           model: string
+          observations: string
           plate: string
           year: string
         }
@@ -278,6 +506,7 @@ export type Database = {
           created_at?: string
           id?: string
           model: string
+          observations?: string
           plate?: string
           year?: string
         }
@@ -287,6 +516,7 @@ export type Database = {
           created_at?: string
           id?: string
           model?: string
+          observations?: string
           plate?: string
           year?: string
         }
@@ -305,10 +535,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      auto_assign_super_admin: { Args: never; Returns: undefined }
+      get_user_id_by_email: { Args: { _email: string }; Returns: string }
+      get_user_shop_ids: { Args: { _user_id: string }; Returns: string[] }
+      has_shop_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["shop_role"]
+          _shop_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_shop_admin: {
+        Args: { _shop_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_shop_member: {
+        Args: { _shop_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      shop_role: "admin" | "mechanic" | "financial"
+      system_role: "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -435,6 +685,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      shop_role: ["admin", "mechanic", "financial"],
+      system_role: ["super_admin"],
+    },
   },
 } as const
